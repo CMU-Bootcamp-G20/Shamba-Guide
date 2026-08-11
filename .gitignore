@@ -1,0 +1,14 @@
+*.gguf
+*.faiss
+*.index
+*.db
+*.sqlite
+*.sqlite3
+runtime/models/
+runtime/indexes/
+runtime/db/
+runtime/logs/
+web/node_modules/
+web/dist/
+.venv/
+.env
