@@ -4,7 +4,6 @@ function ChatHistory() {
         "Wilting in Tomato plants",
         "Yellowing of maize leaves",
         "What's the best season for beans planting ",
-        "Student growth"
     ];
 
     return (
