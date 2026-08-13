@@ -12,7 +12,6 @@ from shambaguide.schemas import (
     WeatherSnapshot,
 )
 
-
 class SQLiteStore:
     """Small SQLite persistence layer for weather data and decision receipts."""
 
@@ -240,6 +239,74 @@ class SQLiteStore:
             return None
         return json.dumps(receipt.model_dump(mode="json"), indent=2, sort_keys=True)
 
+    def get_all_sessions(self) -> list[dict]:
+        """Groups receipts to return a list of unique chat sessions."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT 
+                    session_id, 
+                    MAX(created_at) as updated_at, 
+                    COUNT(receipt_id) as message_count
+                FROM decision_receipts
+                GROUP BY session_id
+                ORDER BY updated_at DESC
+                LIMIT 50
+                """
+            ).fetchall()
+            
+        return [
+            {
+                "conversation_id": row["session_id"],
+                "message_count": row["message_count"],
+                "updated_at": row["updated_at"]
+            }
+            for row in rows
+        ]
 
+    def get_session_history(self, session_id: str) -> list[dict]:
+        """Retrieves all interactions for a specific session in chronological order."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT request_json, response_json, created_at
+                FROM decision_receipts
+                WHERE session_id = ?
+                ORDER BY created_at ASC
+                """,
+                (session_id,)
+            ).fetchall()
+
+        history = []
+        for row in rows:
+            req = json.loads(row["request_json"])
+            res = json.loads(row["response_json"])
+            # Format to match frontend expectations roughly
+            history.append({
+                "role": "user",
+                "content": req.get("question", ""),
+                "created_at": row["created_at"]
+            })
+            history.append({
+                "role": "assistant",
+                "content": res.get("message", ""),
+                "actions": res.get("actions", []),
+                "status": res.get("status", ""),
+                "created_at": row["created_at"]
+            })
+        return history
+
+    def get_basic_analytics(self) -> dict:
+        """Returns simple counts for the dashboard."""
+        with self._connect() as connection:
+            total_questions = connection.execute("SELECT COUNT(*) FROM decision_receipts").fetchone()[0]
+            total_sessions = connection.execute("SELECT COUNT(DISTINCT session_id) FROM decision_receipts").fetchone()[0]
+            
+        return {
+            "summary": {
+                "total_questions": total_questions,
+                "total_conversations": total_sessions
+            }
+        }
 def _normalise_location(value: str) -> str:
     return " ".join(value.casefold().split())
