@@ -63,7 +63,7 @@ def create_app(
         CORSMiddleware,
         allow_origins=list(config.cors_origins),
         allow_credentials=False,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type", "X-Request-ID"],
     )
 
@@ -135,6 +135,38 @@ def create_app(
                 detail="Decision receipt not found.",
             )
         return record
+
+    #  DASHBOARD & CHAT ENDPOINTS
+    
+    @app.get(
+        f"{config.api_prefix}/chats",
+        tags=["chats"],
+        summary="Retrieve all chat sessions",
+    )
+    def list_chats(request: Request):
+        return {"chats": _service(request).store.get_all_sessions()}
+
+    @app.get(
+        f"{config.api_prefix}/chats/{{session_id}}",
+        tags=["chats"],
+        summary="Retrieve message history for a specific session",
+    )
+    def get_chat_history(session_id: str, request: Request):
+        history = _service(request).store.get_session_history(session_id)
+        if not history:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {
+            "conversation_id": session_id,
+            "messages": history
+        }
+
+    @app.get(
+        f"{config.api_prefix}/analytics",
+        tags=["analytics"],
+        summary="Retrieve dashboard analytics",
+    )
+    def get_analytics(request: Request):
+        return _service(request).store.get_basic_analytics()
 
     # Small compatibility aliases for the original starter client.
     @app.get("/health", include_in_schema=False)
