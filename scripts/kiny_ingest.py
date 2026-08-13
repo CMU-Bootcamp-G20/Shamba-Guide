@@ -6,28 +6,18 @@ from pathlib import Path
 RAW_DOC_PATH = "resources/raw_docs/imfashanyigisho.pdf"
 OUTPUT_PATH = "resources/processed/corpus_kiny.jsonl"
 
-# Maps the exact crop-name fragment as it appears in the chapter title to your crop tag
-CHAPTER_TITLE_TO_CROP = {
+# Keyword indicators for each crop in the RAB manual
+CROP_KEYWORDS = {
     "IBIGORI": "maize",
     "IMYUMBATI": "cassava",
     "URUTOKI": "banana",
     "UMUCERI": "rice",
     "INTORYI": "garden_egg",
     "PUWAVURO": "bell_pepper",
+    "POIVRON": "bell_pepper"
 }
 
-CHAPTER_TITLE_PATTERN = re.compile(
-    r"IMFASHANYIGISHO Y[’']? AMAHUGURWA KU BUHINZI BWA KIJYAMBERE BWA?[’']?\s*([A-Z]+)"
-)
-QUESTION_HEADING_PATTERN = re.compile(r"(?m)^([A-ZÀ-Ÿ][A-ZÀ-Ÿ\s\?,\.’']{10,})$")
-
-def extract_full_text(doc_path):
-    doc = pymupdf.open(doc_path)
-    full_text = ""
-    for i, page in enumerate(doc):
-        full_text += f"\n[PAGE{i+1}]\n" + page.get_text()
-    doc.close()
-    return full_text
+QUESTION_HEADING_PATTERN = re.compile(r"(?m)^([A-ZÀ-Ÿ0-9\s\?,\.’'’]{10,})$")
 
 def clean_text(text: str) -> str:
     text = re.sub(r"Hamagara 4676, Umurongo utishyurwa wa\s*RAB", "", text)
@@ -36,75 +26,75 @@ def clean_text(text: str) -> str:
     text = re.sub(r"[ \t]+", " ", text)
     return text.strip()
 
-def find_page_for_offset(full_text, offset):
-    markers = list(re.finditer(r"\[PAGE(\d+)\]", full_text[:offset]))
-    return int(markers[-1].group(1)) if markers else -1
-
-def split_into_crop_chapters(full_text):
-    matches = list(CHAPTER_TITLE_PATTERN.finditer(full_text))
-    chapters = []
-    for idx, m in enumerate(matches):
-        crop = CHAPTER_TITLE_TO_CROP.get(m.group(1))
-        if not crop:
-            continue
-        start = m.start()
-        end = matches[idx + 1].start() if idx + 1 < len(matches) else len(full_text)
-        chapters.append({"crop": crop, "text": full_text[start:end]})
-    return chapters
-
-def split_into_qa_chunks(chapter_text, crop, full_text_offset_base):
-    headings = list(QUESTION_HEADING_PATTERN.finditer(chapter_text))
-    chunks = []
-    for idx, h in enumerate(headings):
-        start = h.start()
-        end = headings[idx + 1].start() if idx + 1 < len(headings) else len(chapter_text)
-        raw = chapter_text[start:end]
-        page = find_page_for_offset(chapter_text, start) 
-        chunks.append({"crop": crop, "page": page, "text": clean_text(raw)})
-    return chunks
-
 def build_corpus():
-    full_text = extract_full_text(RAW_DOC_PATH)
+    doc = pymupdf.open(RAW_DOC_PATH)
+    
+    # Step 1: Collect text per page (Skipping pages 1-4 which are covers & TOC)
+    pages_data = []
+    for i in range(4, len(doc)):
+        text = doc[i].get_text()
+        pages_data.append({"page": i + 1, "text": text})
+    doc.close()
 
-    chapter_matches = list(CHAPTER_TITLE_PATTERN.finditer(full_text))
-    print("Chapter titles found:", [m.group(1) for m in chapter_matches])  # debug: check PUWAVURO shows up here
+    full_text = ""
+    for p in pages_data:
+        full_text += f"\n[PAGE{p['page']}]\n" + p['text']
 
-    question_matches = list(QUESTION_HEADING_PATTERN.finditer(full_text))
+    # Step 2: Track active crop as we scan through the text
+    # Splitting full text into chunks based on double newlines / headers
+    lines = full_text.split('\n')
+    
+    current_crop = None
+    current_page = 5
+    current_chunk_lines = []
+    all_chunks = []
+    chunk_id = 0
+    seen_texts = set()
 
-    all_chunks, chunk_id = [], 0
-    for c_idx, c_match in enumerate(chapter_matches):
-        crop = CHAPTER_TITLE_TO_CROP.get(c_match.group(1))
-        if not crop:
+    for line in lines:
+        clean_line = line.strip()
+        
+        # Track page numbers
+        page_match = re.match(r"\[PAGE(\d+)\]", clean_line)
+        if page_match:
+            current_page = int(page_match.group(1))
             continue
-        chapter_start = c_match.start()
-        chapter_end = chapter_matches[c_idx + 1].start() if c_idx + 1 < len(chapter_matches) else len(full_text)
 
-        headings_in_chapter = [h for h in question_matches if chapter_start <= h.start() < chapter_end]
-        for h_idx, h in enumerate(headings_in_chapter):
-            start = h.start()
-            end = headings_in_chapter[h_idx + 1].start() if h_idx + 1 < len(headings_in_chapter) else chapter_end
-            page = find_page_for_offset(full_text, start)  # absolute offset now, not chapter-relative
-            text = clean_text(full_text[start:end])
-            if len(text) < 40:
-                continue
-            all_chunks.append({
-                "chunk_id": f"rab_{crop}_{chunk_id:04d}",
-                "crop": crop, "source": "RAB_ABAJYANAMA_2021A",
-                "page": page, "language": "rw", "text": text,
-            })
-            chunk_id += 1
+        # Check if line indicates a new crop chapter
+        upper_line = clean_line.upper()
+        for kw, crop_code in CROP_KEYWORDS.items():
+            if kw in upper_line and "IMFASHANYIGISHO" in upper_line:
+                current_crop = crop_code
+                print(f"-> Detected chapter for: {crop_code} (Page {current_page})")
+                break
+
+        # Accumulate text into chunks
+        if clean_line:
+            current_chunk_lines.append(clean_line)
+            
+        # Create a chunk when we hit a large paragraph pause or question mark
+        if len(current_chunk_lines) > 5 or (clean_line.endswith('?') and len(current_chunk_lines) > 2):
+            text_block = clean_text(" ".join(current_chunk_lines))
+            
+            if current_crop and len(text_block) > 50 and text_block not in seen_texts:
+                seen_texts.add(text_block)
+                all_chunks.append({
+                    "chunk_id": f"rab_{current_crop}_{chunk_id:04d}",
+                    "crop": current_crop,
+                    "source": "RAB_ABAJYANAMA_2021A",
+                    "page": current_page,
+                    "language": "rw",
+                    "text": text_block,
+                })
+                chunk_id += 1
+            current_chunk_lines = []
 
     Path("resources/processed").mkdir(parents=True, exist_ok=True)
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         for c in all_chunks:
             f.write(json.dumps(c, ensure_ascii=False) + "\n")
-    print(f"Wrote {len(all_chunks)} chunks to {OUTPUT_PATH}")
+
+    print(f"\nSUCCESS: Extracted {len(all_chunks)} chunks across all crops to {OUTPUT_PATH}")
 
 if __name__ == "__main__":
     build_corpus()
-
-# Quick diagnostic, not part of the main pipeline, just to see what's really on that page
-doc = pymupdf.open("resources/raw_docs/imfashanyigisho.pdf")
-for i in range(17, 20):  # pages around where puwavuro should be, 0-indexed
-    print(f"--- page {i+1} ---")
-    print(doc[i].get_text()[:500])
