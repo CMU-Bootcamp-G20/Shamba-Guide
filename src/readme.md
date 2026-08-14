@@ -9,7 +9,6 @@ An offline-first, traceable agricultural advisory REST API built with FastAPI, S
 
 ## Architecture Overview
 
-```text
 User Query (Kinyarwanda / English)
        │
        ▼

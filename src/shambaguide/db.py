@@ -247,23 +247,38 @@ class SQLiteStore:
                 SELECT 
                     session_id, 
                     MAX(created_at) as updated_at, 
-                    COUNT(receipt_id) as message_count
+                    COUNT(receipt_id) as message_count,
+                    (
+                        SELECT request_json 
+                        FROM decision_receipts d2 
+                        WHERE d2.session_id = decision_receipts.session_id 
+                        ORDER BY created_at DESC 
+                        LIMIT 1
+                    ) as latest_request_json
                 FROM decision_receipts
                 GROUP BY session_id
                 ORDER BY updated_at DESC
                 LIMIT 50
                 """
             ).fetchall()
+        sessions = []
+        for row in rows:
+            # Users actual questin
+            req_data = json.loads(row["latest_request_json"])
+            question = req_data.get("question", "Empty message")
             
-        return [
-            {
+            # Short title (generated) from the question (first 30 chars)
+            title = question if len(question) <= 30 else question[:27] + "..."
+            
+            sessions.append({
                 "conversation_id": row["session_id"],
+                "title": title,
+                "last_message": question,
                 "message_count": row["message_count"],
                 "updated_at": row["updated_at"]
-            }
-            for row in rows
-        ]
-
+            })
+            
+        return sessions
     def get_session_history(self, session_id: str) -> list[dict]:
         """Retrieves all interactions for a specific session in chronological order."""
         with self._connect() as connection:
