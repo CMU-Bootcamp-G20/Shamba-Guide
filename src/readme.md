@@ -62,7 +62,7 @@ pip install -e ".[rag,dev]"
 Download the base model and creates the FAISS vector index in `.ragatouille/`:
 
 ```bash
-python build_kinya_index.py
+python /scripts/build_kinya_index.py
 
 4. **Start the FastAPI server:**
 ```powershell
