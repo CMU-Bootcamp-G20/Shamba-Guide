@@ -2,13 +2,14 @@ import { useState } from "react";
 import ChatHistory from "./ChatHist";
 import ChatInput from "./ChatInput";
 import ChatMessages from "./chatMessages";
-import { sendMessage } from "../../../services/chatApi";
+import { getChat,sendMessage } from "../../../services/chatApi";
 
 
 function ChatDisplay(){
     const[messages, setMessages] = useState([])
     const [sessionId, setSessionId] = useState(null);
     const[isLoading, setIsLoading] = useState([])
+    const [loadingConversation, setLoadingConversation] = useState(false);
 
 
      const handleSendMessage = async (question) => {
@@ -70,28 +71,36 @@ function ChatDisplay(){
         }
     };
 
-     const handleSelectChat = async (selectedSessionId) => {
 
-        try {
+    const handleSelectChat = async (conversationId) => {
 
-            const conversation =
-                await getChat(selectedSessionId);
+    try {
 
-            setSessionId(selectedSessionId);
+        setLoadingConversation(true);
 
-            setMessages(
-                conversation.messages
-            );
+        console.log(
+            "Loading conversation:",
+            conversationId
+        );
 
-        } catch (error) {
+        const data = await getChat(conversationId);
 
-            console.error(
-                "Failed to load conversation:",
-                error
-            );
-        }
-    };
+        setSessionId(conversationId);
 
+        setMessages(data.messages);
+
+    } catch (error) {
+
+        console.error(
+            "Failed to load conversation:",
+            error
+        );
+
+    } finally {
+
+        setLoadingConversation(false);
+    }
+};
     return (
         <>
         <div className="chat-page">

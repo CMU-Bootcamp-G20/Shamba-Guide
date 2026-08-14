@@ -1,16 +1,24 @@
 import Card from "./Card"
+import DashboardHeader from "./DashboardHeader"
+import SummaryCards from "./SummaryCards"
 function Dashboard(){
     return (
         <>
-        <div className="dashboard">
-            <h1>
-                Dashboard
-            </h1>
-            <div className="card-grid">
-            <Card/>
-            <Card/>
-            </div>
-        </div>
+        <main className="dashboard">
+
+            <DashboardHeader />
+
+            <SummaryCards />
+
+            <section className="dashboard-charts">
+
+                {/* <QuestionTrend />
+
+                <TopicBreakdown /> */}
+
+            </section>
+
+        </main>
         </>
     )
 }
