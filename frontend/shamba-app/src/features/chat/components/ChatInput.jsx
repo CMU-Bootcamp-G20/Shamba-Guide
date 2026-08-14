@@ -15,12 +15,19 @@ function ChatInput({onSend}){
         <>
         <div className="chatInput">
             <form className="chat-form" onSubmit={handleSubmit}>
-                <input type="text" 
+                <input 
+                type="text" 
                 name="text" 
                 placeholder="Text Here" 
                 value={text}  
-                onChange={(event) => setText(event.target.value)}/>
-                <button type="submit" arial-label="Submit">➤</button>
+                onChange={(event) => setText(event.target.value)}
+                // disabled={disabled}
+                />
+                <button 
+                type="submit" 
+                arial-label="Submit"
+                // disabled={disabled}
+                >➤</button>
             </form>
         </div>
         </>

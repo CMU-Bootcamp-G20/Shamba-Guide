@@ -7,8 +7,6 @@
 .chat-history {
     width: 260px;
     padding: 20px;
-
-    background-color: #f7f7f8;
     border-right: 1px solid #e5e5e5;
 }
 
@@ -67,15 +65,11 @@
 .chat-form {
     display: flex;
     align-items: center;
-
     max-width: 800px;
     margin: 0 auto;
-
     padding: 8px 12px;
-
     border: 1px solid #d1d5db;
     border-radius: 16px;
-
     background-color: white;
 }
 
@@ -90,18 +84,24 @@
     width: max-content;
 }
 
-.chat-form button {
-    width: 40px;
-    height: 40px;
+#new-chatbtn{
+    width: fit-content;
+    height: fit-content;
     border: none;
     border-radius: 50%;
     cursor: pointer;
-    font-size: 18px;
+    font-size: 20pt;
+   
+}
+
+#new-chatbtn a{
+    text-decoration: none;
+    color: #000000;
 }
 
 .new-chat span{
-    background-color: #000000;
+    /* background-color: #000000; */
     font-weight: bold;
-    border: 1px solid #333433;
-    height: 100px;
+    /* border: 1px solid #333433; */
+    height: 200px;
 }

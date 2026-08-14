@@ -1,19 +1,51 @@
-function ChatHistory() {
+import { useEffect, useState } from "react";
+import { getChats } from "../../../services/chatApi";
 
-    const chats = [
-        "Wilting in Tomato plants",
-        "Yellowing of maize leaves",
-        "What's the best season for beans planting ",
-    ];
+function ChatHistory({onSelectChat}) {
+
+    const [loading, setLoading] = useState([])
+    const [error, setError] = useState('')
+
+      useEffect(() => {
+
+        async function loadChats() {
+
+            try {
+
+                const data = await getChats();
+
+                setChats(data.chats);
+
+            } catch (error) {
+
+                setError("Unable to load chat history.");
+
+            } finally {
+
+                setLoading(false);
+            }
+        }
+
+        loadChats();
+
+    }, []);
+
+    if (loading) {
+        return <p>Loading chats...</p>;
+    }
+
+    if (error) {
+        return <p>{error}</p>;
+    }
 
     return (
         <aside className="chat-history">
-            <button className="new-chat">
-               <span> + </span>New Chat
-            </button>
-
+        <div id="new-chatbtn">
+            <a href="/chat">
+               <span> + </span> New Chat
+               </a>
+               </div>
             <h3>Recent chats</h3>
-
             <ul>
                 {chats.map((chat, index) => (
                     <li key={index}>
@@ -21,7 +53,6 @@ function ChatHistory() {
                     </li>
                 ))}
             </ul>
-
         </aside>
     );
 }
