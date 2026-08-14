@@ -58,9 +58,13 @@ py -3.12 -m venv svenv
 pip install -e ".[rag,dev]"
 
 ```
+3. Build the Kinyarwanda ColBERT Index
+Download the base model and creates the FAISS vector index in `.ragatouille/`:
 
+```bash
+python build_kinya_index.py
 
-3. **Start the FastAPI server:**
+4. **Start the FastAPI server:**
 ```powershell
 uvicorn shambaguide.api:app --reload --port 8000
 
