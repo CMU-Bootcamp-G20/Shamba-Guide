@@ -1,22 +1,22 @@
-function    DashboardHeader() {
+import farmer from '../../../assets/farmer.png'
+
+
+function DashboardHeader() {
     return (
         <section className="welcome-banner">
+        <div className="header-div">
             <div>
-                <p className="welcome-label">AGRICULTURAL INSIGHTS</p>
-
-                <h1>
+                <img src={farmer} alt="a farmer making communication"/>
+            </div>
+            <div>
+                <h1 style={{ lineHeight: "1.6rem"}}>
                     Welcome to Shamba Guide 
                 </h1>
-
-                <p>
-                    Here's an overview of conversations and agricultural
-                    questions from your assistant.
-                </p>
+                </div>
             </div>
-
-            <div className="welcome-date">
+            {/* <div className="welcome-date">
                 Today
-            </div>
+            </div> */}
         </section>
     );
 }

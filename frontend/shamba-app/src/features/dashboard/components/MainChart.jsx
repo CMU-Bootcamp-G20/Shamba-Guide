@@ -3,15 +3,6 @@ function MainChart({ data }) {
     return (
         <section className="chart-card">
 
-            <div className="chart-header">
-                <div>
-                    <h2>Questions by Crop</h2>
-
-                    <p>
-                        Most frequently discussed crops
-                    </p>
-                </div>
-            </div>
 
             <div className="bar-chart">
 

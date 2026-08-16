@@ -4,6 +4,7 @@ import Card from "./Card"
 import DashboardHeader from "./DashboardHeader"
 import MainChart from "./MainChart"
 import StatsSection from "./StatsSection"
+import Footer from "../../utils/footer";
 
 function Dashboard(){
     const [analytics, setAnalytics] = useState(null);
@@ -23,7 +24,7 @@ function Dashboard(){
 
                 console.error(
                     "Unable to load analytics:",
-                    error
+                    error 
                 );
 
             } finally {
@@ -39,7 +40,7 @@ function Dashboard(){
     if (loading) {
         return <p>Loading dashboard...</p>;
     }
-    
+
     return (
         <>
         <main className="dashboard">
@@ -53,7 +54,7 @@ function Dashboard(){
             <section className="dashboard-charts">
                 <MainChart/>
             </section>
-
+            <Footer/>
         </main>
         </>
     )
