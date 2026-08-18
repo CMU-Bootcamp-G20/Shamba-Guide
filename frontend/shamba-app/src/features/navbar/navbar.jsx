@@ -1,16 +1,31 @@
-function Navbar(){
+import { Link, useLocation } from 'react-router-dom';
+
+function Navbar() {
+    const location = useLocation();
+
     return (
-        <>
-    <div className="nav">
-        <nav>
-            <ul>
-                <li><a href="/">Dashboard</a></li>
-                <li><a href ="/chat">Chat</a></li>
-                </ul>
+        <header className="app-navbar">
+            <div className="nav-brand">
+                <span className="logo-icon">🌱</span>
+                <h2>ShambaGuide</h2>
+            </div>
+            
+            <nav>
+                <Link 
+                    to="/" 
+                    className={location.pathname === '/' ? 'active' : ''}
+                >
+                    📊 Imibare (Dashboard)
+                </Link>
+                <Link 
+                    to="/chat" 
+                    className={location.pathname === '/chat' ? 'active' : ''}
+                >
+                    💬 Ikiganiro (Chat)
+                </Link>
             </nav>
-        </div>
-        </>
-        )
+        </header>
+    );
 }
 
-export default Navbar; 
+export default Navbar;

@@ -2,72 +2,54 @@ import { useEffect, useState } from "react";
 import { getChats } from "../../../services/chatApi";
 
 function ChatHistory({ onSelectChat }) {
-
     const [chats, setChats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
     useEffect(() => {
-
         async function loadChats() {
-
             try {
-
                 const data = await getChats();
-
-                setChats(data.chats);
-
+                // Depending on your API, data might be the array itself or inside data.chats
+                setChats(data.chats || data);
             } catch (error) {
-
                 console.error("Error loading chats:", error);
-
-                setError("Unable to load chat history.");
-
+                setError("Ntabwo bibaye gukunda kuzana amateka. (Unable to load chat history.)");
             } finally {
-
                 setLoading(false);
-
             }
         }
-
         loadChats();
-
     }, []);
 
     if (loading) {
-        return <p>Loading chats...</p>;
+        return <p style={{ padding: '24px', color: '#6b7280' }}>⏳ Ndi gushaka... (Loading chats...)</p>;
     }
 
     if (error) {
-        return <p>{error}</p>;
+        return <p style={{ padding: '24px', color: '#ef4444' }}>{error}</p>;
     }
 
     return (
         <aside className="chat-history">
-
             <div id="new-chatbtn">
                 <a href="/chat">
-                    <span>+</span> New Chat
+                    <span>+</span> Ikiganiro Gishya (New Chat)
                 </a>
             </div>
-
-            <h3>Recent chats</h3>
-
+            
+            <h3>Ibiganiro bya vuba (Recent chats)</h3>
+            
             <ul>
-                {chats.map((chat) => (
-
+                {chats && chats.map((chat) => (
                     <li
-                        key={chat.conversation_id}
-                        onClick={() =>
-                            onSelectChat(chat.conversation_id)
-                        }
+                        key={chat.conversation_id || chat.id}
+                        onClick={() => onSelectChat(chat.conversation_id || chat.id)}
                     >
-                        {chat.title}
+                        {chat.title || "Ikiganiro (Chat)"}
                     </li>
-
                 ))}
             </ul>
-
         </aside>
     );
 }
