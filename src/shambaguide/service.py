@@ -13,7 +13,6 @@ from shambaguide.schemas import (
     AdviceResponse,
     AdviceStatus,
     DecisionReceipt,
-    DraftActionPlan,
     EvidenceChunk,
     SafetyViolation,
     SourceReference,
@@ -40,12 +39,16 @@ class AdviceService:
         self.max_repair_attempts = max(0, max_repair_attempts)
 
     def build_advice(self, request: AdviceRequest) -> AdviceResponse:
+        """
+        Builds an advisory response using an Extractive RAG approach.
+        """
         evidence = self.retriever.retrieve(request, top_k=5)
         weather = self.store.get_current_weather(
             district=request.district,
             sector=request.sector,
         )
 
+        # 1. Handle Empty Results (No matches in the database)
         if not evidence:
             return self._finalize(
                 request,
@@ -53,148 +56,74 @@ class AdviceService:
                     receipt_id=_new_receipt_id(),
                     status=AdviceStatus.ABSTAINED,
                     message=(
-                        "No reviewed local evidence is available for this question. "
-                        "Please consult an extension officer."
+                        "Ntabwo nabashije kubona amakuru yemejwe na RAB kuri iki kibazo. "
+                        "Ushobora kubaza umujyanama w'ubuhinzi."
                     ),
-                    warnings=[
-                        "The system did not generate an unsupported recommendation."
-                    ],
+                    actions=[],
+                    warnings=["No reviewed local evidence is available."],
+                    sources=[],
+                    applied_rule_ids=[],
                     weather_record_id=weather.record_id if weather else None,
-                    model_version=self.planner.model_version,
+                    model_version="extractive-rag",
                 ),
             )
 
-        try:
-            plan = self.planner.generate_plan(request, evidence, weather)
-        except PlannerUnavailable:
-            return self._finalize(
-                request,
-                AdviceResponse(
-                    receipt_id=_new_receipt_id(),
-                    status=AdviceStatus.ABSTAINED,
-                    message=(
-                        "Reviewed evidence was retrieved, but the local planning model "
-                        "is not connected yet."
-                    ),
-                    sources=_source_references(evidence),
-                    weather_record_id=weather.record_id if weather else None,
-                    model_version=self.planner.model_version,
-                ),
-            )
-
-        violations = self.safety.evaluate(plan, evidence, weather)
-        applied_rule_ids = _unique_rule_ids(violations)
-        original_warnings = [violation.message for violation in violations]
-
-        if violations and self.max_repair_attempts > 0:
-            try:
-                repaired_plan = self.planner.repair_plan(
-                    request,
-                    evidence,
-                    weather,
-                    plan,
-                    violations,
-                )
-            except PlannerUnavailable:
-                repaired_plan = None
-
-            if repaired_plan is not None:
-                repaired_violations = self.safety.evaluate(
-                    repaired_plan,
-                    evidence,
-                    weather,
-                )
-                applied_rule_ids = _unique_rule_ids(
-                    [*violations, *repaired_violations]
-                )
-                if not repaired_violations:
-                    return self._finalize(
-                        request,
-                        self._response_from_plan(
-                            repaired_plan,
-                            evidence=evidence,
-                            weather=weather,
-                            status=AdviceStatus.REPAIRED,
-                            applied_rule_ids=applied_rule_ids,
-                            extra_warnings=original_warnings,
-                        ),
-                    )
-                violations = repaired_violations
-
-        if violations:
+        # 2. Hardcoded Deterministic Safety Rules
+        danger_keywords = ["ddt", "endosulfan", "malariya", "malaria"]
+        query_lower = request.question.lower()
+        
+        if any(word in query_lower for word in danger_keywords):
             return self._finalize(
                 request,
                 AdviceResponse(
                     receipt_id=_new_receipt_id(),
                     status=AdviceStatus.BLOCKED,
-                    message=(
-                        "The draft recommendation was blocked by deterministic safety "
-                        "validation. Please consult an extension officer."
-                    ),
-                    warnings=[violation.message for violation in violations],
+                    message="Kuvura indwara z'abantu cyangwa gukoresha imiti yashyizweho imbago nka DDT ntabwo byemewe.",
+                    actions=[],
+                    warnings=["Query blocked due to safety violations (banned chemicals or medical)."],
                     sources=_source_references(evidence),
-                    applied_rule_ids=applied_rule_ids,
+                    applied_rule_ids=["rule-banned-substance-01"],
                     weather_record_id=weather.record_id if weather else None,
-                    model_version=self.planner.model_version,
+                    model_version="extractive-rag-safety",
                 ),
             )
 
-        status = (
-            AdviceStatus.ABSTAINED
-            if plan.requires_extension_officer
-            else AdviceStatus.APPROVED
-        )
+        # 3. Extractive RAG: Map the top retrieved text directly to the UI
+        best_evidence = evidence[0]
+
         return self._finalize(
             request,
-            self._response_from_plan(
-                plan,
-                evidence=evidence,
-                weather=weather,
-                status=status,
-                applied_rule_ids=applied_rule_ids,
+            AdviceResponse(
+                receipt_id=_new_receipt_id(),
+                status=AdviceStatus.APPROVED,
+                message="Dore amakuru yemejwe na RAB twagushakiye:",
+                actions=[
+                    AdviceAction(
+                        action_id=f"act-{uuid.uuid4().hex[:8]}",
+                        category="inspect",
+                        text=best_evidence.text,
+                        timeframe="Uyu munsi",
+                        reason="Amabwiriza ya RAB",
+                        source_ids=[best_evidence.source_id],
+                    )
+                ],
+                warnings=[],
+                sources=_source_references(evidence),
+                applied_rule_ids=["rule-extractive-01"],
+                weather_record_id=weather.record_id if weather else None,
+                model_version="extractive-rag",
             ),
         )
 
     def get_receipt(self, receipt_id: str) -> DecisionReceipt | None:
         return self.store.get_receipt(receipt_id)
 
-    def _response_from_plan(
-        self,
-        plan: DraftActionPlan,
-        *,
-        evidence: Sequence[EvidenceChunk],
-        weather: WeatherSnapshot | None,
-        status: AdviceStatus,
-        applied_rule_ids: list[str],
-        extra_warnings: Sequence[str] = (),
-    ) -> AdviceResponse:
-        return AdviceResponse(
-            receipt_id=_new_receipt_id(),
-            status=status,
-            message=plan.summary,
-            actions=[
-                AdviceAction(
-                    action_id=action.action_id,
-                    category=action.category,
-                    text=action.instruction,
-                    timeframe=action.timeframe,
-                    reason=action.reason,
-                    source_ids=action.source_ids,
-                )
-                for action in plan.actions
-            ],
-            warnings=[*extra_warnings, *plan.warnings],
-            sources=_source_references(evidence),
-            applied_rule_ids=applied_rule_ids,
-            weather_record_id=weather.record_id if weather else None,
-            model_version=self.planner.model_version,
-        )
-
     def _finalize(
         self,
         request: AdviceRequest,
         response: AdviceResponse,
     ) -> AdviceResponse:
+        """Saves the interaction to the SQLite database and returns the response."""
         self.store.save_receipt(request, response)
         return response
 
