@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shambaguide"
+version = "0.2.0"
+description = "Offline, traceable agricultural advisory API for CMU-Africa."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.128,<0.129",
+  "pydantic>=2.13,<3",
+  "uvicorn>=0.40,<1",
+]
+
+[project.optional-dependencies]
+rag = [
+  "faiss-cpu>=1.12,<2",
+  "pandas>=2.3,<3",
+  "pymupdf>=1.26,<2",
+  "sentence-transformers>=5.1,<6",
+]
+dev = [
+  "httpx>=0.28,<1",
+  "pytest>=9,<10",
+  "ruff>=0.14,<1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
